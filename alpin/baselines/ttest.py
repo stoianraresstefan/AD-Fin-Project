@@ -63,10 +63,10 @@ class TTestBaseline:
             right_window = signal[i : i + window_size]
 
             # Perform t-test
-            t_stat, p_val = ttest_ind(left_window, right_window)
+            result = ttest_ind(left_window, right_window)
 
             # Mark as changepoint if p-value is significant
-            if p_val < alpha:
+            if result.pvalue < alpha:
                 candidates.append(i)
 
         # Merge nearby changepoints (within window_size distance)

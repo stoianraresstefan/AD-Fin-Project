@@ -5,6 +5,7 @@ changepoint detection results, and metric comparisons. It supports both
 static (matplotlib) and interactive (plotly) visualizations.
 """
 
+import warnings
 from typing import Dict, List, Optional
 
 import matplotlib.figure
@@ -130,7 +131,7 @@ def plot_metrics_comparison(
     matplotlib.figure.Figure or None
     """
     if not metrics_dict:
-        print("No metrics provided to plot.")
+        warnings.warn("No metrics provided to plot.")
         return None
 
     methods = list(metrics_dict.keys())
