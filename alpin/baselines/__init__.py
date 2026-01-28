@@ -1,1 +1,3 @@
-__all__ = ["ttest"]
+from .ttest import TTestBaseline
+
+__all__ = ["TTestBaseline"]
