@@ -18,6 +18,7 @@ dependencies = [
     "scikit-learn",
     "joblib",
     "pandas",
+    "tqdm>=4.67.1",
 ]
 
 [tool.uv]
