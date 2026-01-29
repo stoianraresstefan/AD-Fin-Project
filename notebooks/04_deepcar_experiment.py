@@ -61,8 +61,8 @@ import torch
 from torch.utils.data import DataLoader
 
 # PyTorch Lightning
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping
+import lightning.pytorch as pl
+from lightning.pytorch.callbacks import EarlyStopping
 
 # PyTorch Forecasting
 from pytorch_forecasting import TimeSeriesDataSet, DeepAR
@@ -107,7 +107,7 @@ MAX_PREDICTION_LENGTH = 20  # Forecast horizon
 BATCH_SIZE = 32
 
 # Training configuration
-MAX_EPOCHS = 20
+MAX_EPOCHS = 20  # Full training for final results
 LEARNING_RATE = 1e-3
 HIDDEN_SIZE = 32
 RNN_LAYERS = 2
@@ -333,8 +333,8 @@ baseline_trainer = pl.Trainer(
 print("Training Baseline DeepAR...")
 baseline_trainer.fit(
     baseline_deepar,
-    train_dataloader=train_dataloader,
-    val_dataloader=val_dataloader,
+    train_dataloaders=train_dataloader,
+    val_dataloaders=val_dataloader,
 )
 print("Baseline training complete!")
 
@@ -559,55 +559,25 @@ print(
 )
 
 # %%
-# Custom training loop with filtered dataloader
-# Note: Since PyTorch Lightning trainer expects a standard dataloader,
-# we'll do a manual training loop here for the filtered version
+# Create trainer for ALPIN-enhanced model with filtered dataloader
+alpin_trainer = pl.Trainer(
+    max_epochs=MAX_EPOCHS,
+    gradient_clip_val=0.1,
+    limit_train_batches=50,
+    limit_val_batches=20,
+    enable_progress_bar=True,
+    enable_model_summary=False,
+    logger=False,
+)
 
 print("Training ALPIN-Enhanced DeepAR with BatchCP filtering...")
+alpin_trainer.fit(
+    alpin_deepar,
+    train_dataloaders=filtered_train_dataloader,
+    val_dataloaders=val_dataloader,
+)
 
-optimizer = torch.optim.Adam(alpin_deepar.parameters(), lr=LEARNING_RATE)
-alpin_deepar.train()
-
-training_losses = []
-
-for epoch in range(MAX_EPOCHS):
-    epoch_loss = 0.0
-    batch_count = 0
-
-    for batch in filtered_train_dataloader:
-        optimizer.zero_grad()
-
-        x, y = batch
-
-        # Forward pass
-        output = alpin_deepar(x)
-        loss = alpin_deepar.loss(output, y)
-
-        # Check for NaN
-        if torch.isnan(loss):
-            continue
-
-        # Backward pass
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(alpin_deepar.parameters(), 0.1)
-        optimizer.step()
-
-        epoch_loss += loss.item()
-        batch_count += 1
-
-        # Limit batches for quick demo
-        if batch_count >= 50:
-            break
-
-    avg_loss = epoch_loss / max(batch_count, 1)
-    training_losses.append(avg_loss)
-
-    if (epoch + 1) % 5 == 0 or epoch == 0:
-        print(
-            f"  Epoch {epoch + 1}/{MAX_EPOCHS}: Loss = {avg_loss:.4f}, Batches used = {batch_count}"
-        )
-
-# Get filtering statistics
+# Get filtering statistics after training
 filter_stats = filtered_train_dataloader.get_filtering_stats()
 print("\nBatchCP Filtering Statistics:")
 print(f"  Total batches processed: {filter_stats['total_batches']}")
@@ -702,7 +672,7 @@ comparison_df["Improvement"] = [f"{mae_improvement:+.2f}%", f"{rmse_improvement:
 print("=" * 60)
 print("FORECAST ACCURACY COMPARISON")
 print("=" * 60)
-display(comparison_df)
+print(comparison_df)
 print("\n(Positive improvement = ALPIN-Enhanced is better)")
 
 # %%

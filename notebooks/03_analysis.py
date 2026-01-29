@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: AD-Fin-Project (3.12.6)
 #     language: python
 #     name: python3
 # ---
