@@ -19,6 +19,9 @@ dependencies = [
     "joblib",
     "pandas",
     "tqdm>=4.67.1",
+    "pytorch-forecasting",
+    "pytorch-lightning",
+    "torch",
 ]
 
 [tool.uv]

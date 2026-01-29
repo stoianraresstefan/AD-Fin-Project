@@ -63,6 +63,7 @@ Interactive tutorials are available in the `notebooks/` directory:
 | [01_quickstart.ipynb](notebooks/01_quickstart.ipynb) | Basic usage and quick examples |
 | [02_training.ipynb](notebooks/02_training.ipynb) | Training ALPIN on synthetic and real data |
 | [03_analysis.ipynb](notebooks/03_analysis.ipynb) | Performance analysis and visualizations |
+| [04_deepcar_experiment.ipynb](notebooks/04_deepcar_experiment.ipynb) | DeepCAR experiment: ALPIN-enhanced vs baseline DeepAR forecasting |
 
 ## Project Structure
 

@@ -7,6 +7,8 @@ Supports both Protocol I (all changepoints) and Protocol II (amplitude filtering
 
 from typing import Literal
 import numpy as np
+import pandas as pd
+from datetime import timedelta
 
 
 def generate_signal(
@@ -169,3 +171,88 @@ def generate_synthetic_signals(
         truths.append(changepoints)
 
     return signals, truths
+
+
+def alpin_signals_to_deepar_df(
+    signals: list[np.ndarray],
+    changepoints_list: list[list[int]],
+    start_date: str = "2020-01-01",
+) -> pd.DataFrame:
+    """
+    Convert ALPIN synthetic signals into pandas DataFrame for pytorch-forecasting.
+
+    Transforms a list of 1D ALPIN signals and their changepoints into a single
+    pandas DataFrame compatible with pytorch-forecasting's TimeSeriesDataSet.
+    Combines multiple signals as separate time series with series_id labels.
+
+    Parameters
+    ----------
+    signals : list[np.ndarray]
+        List of 1D numpy arrays representing ALPIN signals
+    changepoints_list : list[list[int]]
+        List of changepoint lists, one per signal. Each inner list contains
+        indices where regime changes occur.
+    start_date : str, optional
+        Starting date in 'YYYY-MM-DD' format (default: "2020-01-01")
+        Dates increment daily for each time step.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        DataFrame with columns:
+        - time_idx : int - Sequential time index (resets per series)
+        - date : datetime - Timestamps starting from start_date
+        - value : float - Signal values
+        - series_id : str - Series identifier ("series_0", "series_1", etc.)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from alpin.data.synthetic import alpin_signals_to_deepar_df
+    >>>
+    >>> # Create two sample signals
+    >>> signals = [np.array([1.0, 1.5, 2.0, 1.8]), np.array([0.5, 0.3, 0.1])]
+    >>> changepoints = [[1, 2], [1]]
+    >>>
+    >>> df = alpin_signals_to_deepar_df(signals, changepoints)
+    >>> print(df)
+       time_idx       date  value  series_id
+    0         0 2020-01-01    1.0   series_0
+    1         1 2020-01-02    1.5   series_0
+    2         2 2020-01-03    2.0   series_0
+    3         3 2020-01-04    1.8   series_0
+    4         0 2020-01-01    0.5   series_1
+    5         1 2020-01-02    0.3   series_1
+    6         2 2020-01-03    0.1   series_1
+    """
+    # Parse start date
+    base_date = pd.to_datetime(start_date)
+
+    # Collect data from all signals
+    rows = []
+    for series_idx, signal in enumerate(signals):
+        series_id = f"series_{series_idx}"
+
+        for time_idx, value in enumerate(signal):
+            # Generate date for this time step
+            date = base_date + timedelta(days=time_idx)
+
+            rows.append(
+                {
+                    "time_idx": time_idx,
+                    "date": date,
+                    "value": float(value),
+                    "series_id": series_id,
+                }
+            )
+
+    # Create DataFrame
+    df = pd.DataFrame(rows)
+
+    # Ensure correct dtypes
+    df["time_idx"] = df["time_idx"].astype(int)
+    df["date"] = pd.to_datetime(df["date"])
+    df["value"] = df["value"].astype(float)
+    df["series_id"] = df["series_id"].astype(str)
+
+    return df
