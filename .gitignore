@@ -210,3 +210,7 @@ __marimo__/
 .sisyphus/
 
 *.ipynb
+
+*.ckpt
+
+*.yaml
