@@ -490,12 +490,18 @@ class ChangePointAwareDataLoader:
         """Iterate over batches, skipping those with changepoints."""
         self.filtered_count = 0
         self.total_count = 0
+        debug_count = 0
 
         for batch in self.dataloader:
             self.total_count += 1
 
             if self._batch_contains_changepoint(batch):
                 self.filtered_count += 1
+                if debug_count < 3:
+                    print(
+                        f"  [DEBUG] Batch {self.total_count}: Filtered (contains changepoint in encoder window)"
+                    )
+                    debug_count += 1
                 continue  # Skip this batch
 
             yield batch

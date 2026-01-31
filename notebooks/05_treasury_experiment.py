@@ -497,53 +497,63 @@ if PYTORCH_AVAILABLE:
         def _batch_contains_changepoint(self, batch: tuple) -> bool:
             """
             Check if any sample in batch has a changepoint in its encoder window.
-            
+
             FIXED: Correctly handles relative time indices by reconstructing absolute time
             from decoder position.
             """
             x_dict, y = batch
-            
+
             groups = x_dict.get("groups", None)
             group_id = "treasury"
-            
+
             if group_id not in self.changepoints_dict:
                 return False
-            
+
             decoder_times = None
             if "decoder_time_idx" in x_dict:
                 decoder_times = x_dict["decoder_time_idx"]
-            
+
             if decoder_times is None:
                 return False
-            
+
             batch_size = decoder_times.shape[0]
-            
+
             for i in range(batch_size):
                 sample_decoder_times = decoder_times[i].cpu().numpy()
-                
+
                 if len(sample_decoder_times) == 0:
                     continue
-                
+
                 decoder_end = int(sample_decoder_times[-1])
                 encoder_end = decoder_end - len(sample_decoder_times)
                 encoder_start = encoder_end - self.encoder_length + 1
-                
+
                 for cp in self.changepoints_dict[group_id]:
-                    if (encoder_start - self.tolerance) <= cp <= (encoder_end + self.tolerance):
+                    if (
+                        (encoder_start - self.tolerance)
+                        <= cp
+                        <= (encoder_end + self.tolerance)
+                    ):
                         return True
-            
+
             return False
 
         def __iter__(self) -> Iterator:
             """Iterate over batches, skipping those with changepoints."""
             self.filtered_count = 0
             self.total_count = 0
+            debug_count = 0
 
             for batch in self.dataloader:
                 self.total_count += 1
 
                 if self._batch_contains_changepoint(batch):
                     self.filtered_count += 1
+                    if debug_count < 3:
+                        print(
+                            f"  [DEBUG] Batch {self.total_count}: Filtered (contains changepoint in encoder window)"
+                        )
+                        debug_count += 1
                     continue  # Skip this batch
 
                 yield batch
@@ -659,7 +669,7 @@ if PYTORCH_AVAILABLE:
     print("Evaluating models on test set...")
 
     # Baseline predictions
-     baseline_predictions = baseline_deepar.predict(
+    baseline_predictions = baseline_deepar.predict(
         test_dataloader, mode="prediction", return_x=True
     )
     baseline_actuals = torch.cat([x for x, _ in test_dataloader])
@@ -667,7 +677,7 @@ if PYTORCH_AVAILABLE:
     baseline_rmse = RMSE()(baseline_predictions.output, baseline_actuals).item()
 
     # Enhanced predictions
-     enhanced_predictions = alpin_deepar.predict(
+    enhanced_predictions = alpin_deepar.predict(
         test_dataloader, mode="prediction", return_x=True
     )
     enhanced_actuals = torch.cat([x for x, _ in test_dataloader])
