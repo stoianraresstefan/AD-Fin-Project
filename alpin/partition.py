@@ -29,8 +29,8 @@ def solve_optimal_partition(signal: np.ndarray, beta: float) -> list[int]:
 
     # Initialize Pelt algorithm with l2 cost model
     # min_size=2: prevents trivial single-sample segments
-    # jump=1: checks every index (no subsampling)
-    algo = rpt.Pelt(model="l2", min_size=2, jump=1).fit(signal)
+    # jump=3: checks every 3rd index for 3x speedup
+    algo = rpt.Pelt(model="l2", min_size=2, jump=3).fit(signal)
 
     # Predict changepoints with penalty parameter
     # Result format: [cp1, cp2, ..., signal_length]

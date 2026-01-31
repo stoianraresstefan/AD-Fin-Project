@@ -88,13 +88,21 @@ signal = df["Value"].values
 print(f"\nSignal length: {len(signal)}")
 print(f"Signal range: [{signal.min():.2f}, {signal.max():.2f}]")
 
+# Resample to weekly for faster training (16k → 2.3k samples)
+df_weekly = df.set_index("Date").resample("W").mean().reset_index()
+df_weekly = df_weekly.sort_values("Date").reset_index(drop=True)
+signal = df_weekly["Value"].values
+df = df_weekly
+
+print(f"\nResampled to weekly data: {len(signal)} samples")
+
 # %% [markdown]
 # ## 3. Define Changepoints and Create Partial Training Set
 #
 # We have 8 ground truth changepoints. For training, we'll randomly select only 4 (50%).
 
 # %%
-FULL_CHANGEPOINTS = np.array([1992, 3155, 4544, 5105, 7065, 9710, 11480, 14543])
+FULL_CHANGEPOINTS = np.array([284, 450, 649, 729, 1009, 1387, 1640, 2077])
 print(f"Full changepoints (n={len(FULL_CHANGEPOINTS)}): {FULL_CHANGEPOINTS}")
 
 n_train_cps = len(FULL_CHANGEPOINTS) // 2
@@ -306,10 +314,10 @@ except ImportError as e:
 # %%
 if PYTORCH_AVAILABLE:
     # Configuration
-    MAX_ENCODER_LENGTH = 60  # Use 60 past days
-    MAX_PREDICTION_LENGTH = 20  # Forecast 20 days ahead
-    BATCH_SIZE = 32
-    MAX_EPOCHS = 20
+    MAX_ENCODER_LENGTH = 30  # Reduced from 60
+    MAX_PREDICTION_LENGTH = 20  # Keep same
+    BATCH_SIZE = 64  # Increased from 32 (fewer batches)
+    MAX_EPOCHS = 10  # Reduced from 20
     LEARNING_RATE = 0.001
 
     # Reproducibility
