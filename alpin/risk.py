@@ -47,7 +47,7 @@ def penalized_risk(signal: np.ndarray, partition: list[int], beta: float) -> flo
     """Combines empirical risk with a linear penalty on the number of segments to balance accuracy and complexity.
 
     Input: signal (np.ndarray) - 1D signal array, partition (list of int) - changepoint indices, beta (float) - penalty parameter (beta >= 0)
-    Output: float - penalized risk value (sum of empirical risk plus beta times number of segments)
+    Output: float - penalized risk value (sum of empirical risk + beta * number of segments)
     """
     # Number of segments = number of changepoints + 1
     n_segments = len(partition) + 1
