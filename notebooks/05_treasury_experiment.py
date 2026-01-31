@@ -51,11 +51,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List
-import sys
-
-# Add parent directory to path for ALPIN imports
-sys.path.insert(0, "..")
+from typing import List, Dict, Iterator, Any
 
 # ALPIN
 from alpin import ALPIN
@@ -174,12 +170,7 @@ detected_cps = model.predict(signal)
 print(f"Detected changepoints (n={len(detected_cps)}): {detected_cps}")
 
 # Evaluate detection performance against FULL ground truth
-metrics = evaluate_all(
-    detected=detected_cps,
-    ground_truth=FULL_CHANGEPOINTS,
-    signal_length=len(signal),
-    margin=50,  # Allow 50-sample margin (roughly 50 trading days)
-)
+metrics = evaluate_all(detected_cps, FULL_CHANGEPOINTS, len(signal), tolerance=50)
 
 print("\nDetection Performance (vs. Full Ground Truth):")
 for metric, value in metrics.items():
@@ -401,68 +392,142 @@ if PYTORCH_AVAILABLE:
 
 # %%
 if PYTORCH_AVAILABLE:
-    # Create filtered training set by removing samples near changepoints
-    # A sample at time_idx=t uses encoder window [t - MAX_ENCODER_LENGTH, t]
-    # Remove if this window overlaps with any changepoint (with margin)
+    # Create changepoints dictionary in format expected by ChangePointAwareDataLoader
+    # Treasury has single time series with group="treasury"
+    changepoints_dict = {"treasury": train_changepoints}
 
-    MARGIN = 10  # Samples before/after changepoint to exclude
+    print(f"Changepoints for filtering: {changepoints_dict}")
 
-    def overlaps_changepoint(
-        time_idx: int, changepoints: np.ndarray, margin: int
-    ) -> bool:
-        """Check if encoder window [time_idx - MAX_ENCODER_LENGTH, time_idx] overlaps with any changepoint."""
-        encoder_start = time_idx - MAX_ENCODER_LENGTH
-        encoder_end = time_idx
+    class ChangePointAwareDataLoader:
+        """
+        Wrapper that filters out batches containing changepoints in encoder window.
 
-        for cp in changepoints:
-            if encoder_start - margin <= cp <= encoder_end + margin:
-                return True
-        return False
+        Implements the BatchCP method from DeepCAR: batches where the encoder window
+        overlaps with a detected changepoint are skipped during training.
 
-    # Filter training data
-    train_df_filtered = train_df[
-        ~train_df["time_idx"].apply(
-            lambda t: overlaps_changepoint(t, train_changepoints, MARGIN)
-        )
-    ].copy()
+        Parameters
+        ----------
+        dataloader : DataLoader
+            Original PyTorch DataLoader from TimeSeriesDataSet
+        changepoints_dict : Dict[str, List[int]]
+            Mapping from group identifier to list of changepoint indices
+        encoder_length : int
+            Length of the encoder window
+        tolerance : int
+            Safety margin around changepoints
+        """
 
-    print(f"Original training samples: {len(train_df)}")
-    print(f"Filtered training samples: {len(train_df_filtered)}")
-    print(
-        f"Removed: {len(train_df) - len(train_df_filtered)} samples ({100 * (1 - len(train_df_filtered) / len(train_df)):.1f}%)"
+        def __init__(
+            self,
+            dataloader: DataLoader,
+            changepoints_dict: Dict[str, List[int]],
+            encoder_length: int,
+            tolerance: int = 2,
+        ):
+            self.dataloader = dataloader
+            self.changepoints_dict = changepoints_dict
+            self.encoder_length = encoder_length
+            self.tolerance = tolerance
+            self.filtered_count = 0
+            self.total_count = 0
+
+        def _batch_contains_changepoint(self, batch: tuple) -> bool:
+            """
+            Check if any sample in batch has a changepoint in its encoder window.
+
+            Args:
+                batch: Tuple of (x_dict, y_tuple) from TimeSeriesDataSet
+
+            Returns:
+                True if batch should be filtered out
+            """
+            x_dict, y = batch
+
+            # Get encoder time indices - these tell us the time range of each sample
+            # encoder_time_idx has shape (batch_size, encoder_length)
+            if "encoder_time_idx" in x_dict:
+                encoder_times = x_dict["encoder_time_idx"]
+            else:
+                # Fallback: use relative time index if available
+                encoder_times = x_dict.get("time_idx", None)
+                if encoder_times is None:
+                    return False  # Cannot determine, don't filter
+
+            # Get groups to identify which time series each sample belongs to
+            groups = x_dict.get("groups", None)
+            if groups is None:
+                # For single time series (treasury), we can assume all samples are from the same group
+                group_id = "treasury"
+            else:
+                group_id = "treasury"  # Treasury notebook uses single group
+
+            batch_size = encoder_times.shape[0]
+
+            for i in range(batch_size):
+                # Get time range of this sample's encoder window
+                sample_times = encoder_times[i].cpu().numpy()
+                start_time = int(sample_times.min())
+                end_time = int(sample_times.max())
+
+                # Check if any changepoint falls within encoder window
+                if group_id in self.changepoints_dict:
+                    for cp in self.changepoints_dict[group_id]:
+                        # Check if changepoint (with tolerance) overlaps encoder window
+                        if (
+                            (start_time - self.tolerance)
+                            <= cp
+                            <= (end_time + self.tolerance)
+                        ):
+                            return True
+
+            return False
+
+        def __iter__(self) -> Iterator:
+            """Iterate over batches, skipping those with changepoints."""
+            self.filtered_count = 0
+            self.total_count = 0
+
+            for batch in self.dataloader:
+                self.total_count += 1
+
+                if self._batch_contains_changepoint(batch):
+                    self.filtered_count += 1
+                    continue  # Skip this batch
+
+                yield batch
+
+        def __len__(self) -> int:
+            """Return length of underlying dataloader (upper bound)."""
+            return len(self.dataloader)
+
+        def get_filtering_stats(self) -> Dict[str, Any]:
+            """Get statistics about batch filtering."""
+            return {
+                "total_batches": self.total_count,
+                "filtered_batches": self.filtered_count,
+                "kept_batches": self.total_count - self.filtered_count,
+                "filter_ratio": self.filtered_count / max(self.total_count, 1),
+            }
+
+    print("ChangePointAwareDataLoader class defined.")
+
+    # Create filtered dataloader for ALPIN-enhanced training
+    filtered_train_dataloader = ChangePointAwareDataLoader(
+        dataloader=train_dataloader,
+        changepoints_dict=changepoints_dict,
+        encoder_length=MAX_ENCODER_LENGTH,
+        tolerance=10,
     )
 
-    # Create TimeSeriesDataSet with filtered data
-    training_filtered = TimeSeriesDataSet(
-        train_df_filtered,
-        time_idx="time_idx",
-        target="value",
-        group_ids=["group"],
-        max_encoder_length=MAX_ENCODER_LENGTH,
-        max_prediction_length=MAX_PREDICTION_LENGTH,
-        time_varying_unknown_reals=["value"],
-        time_varying_known_reals=["year", "month", "day_of_week"],
-        target_normalizer=GroupNormalizer(groups=["group"]),
-    )
-
-    # Use same validation set
-    validation_filtered = TimeSeriesDataSet.from_dataset(
-        training_filtered, val_df, predict=True, stop_randomization=True
-    )
-
-    train_dataloader_filtered = training_filtered.to_dataloader(
-        train=True, batch_size=BATCH_SIZE, num_workers=0
-    )
-    val_dataloader_filtered = validation_filtered.to_dataloader(
-        train=False, batch_size=BATCH_SIZE, num_workers=0
-    )
-
-    print(f"Filtered training batches: {len(train_dataloader_filtered)}")
+    print(f"Created ChangePointAwareDataLoader")
+    print(f"  Detected changepoints: {train_changepoints}")
+    print(f"  Encoder length: {MAX_ENCODER_LENGTH}")
+    print(f"  Tolerance: 10")
 
     # Train ALPIN-enhanced DeepAR
     print("\nTraining ALPIN-Enhanced DeepAR (BatchCP)...")
     enhanced_model = DeepAR.from_dataset(
-        training_filtered,
+        training,
         learning_rate=LEARNING_RATE,
         hidden_size=64,
         rnn_layers=2,
@@ -482,9 +547,18 @@ if PYTORCH_AVAILABLE:
 
     trainer_filtered.fit(
         enhanced_model,
-        train_dataloaders=train_dataloader_filtered,
-        val_dataloaders=val_dataloader_filtered,
+        train_dataloaders=filtered_train_dataloader,
+        val_dataloaders=val_dataloader,
     )
+
+    # Get filtering statistics after training
+    filter_stats = filtered_train_dataloader.get_filtering_stats()
+    print("\nBatchCP Filtering Statistics:")
+    print(f"  Total batches processed: {filter_stats['total_batches']}")
+    print(
+        f"  Filtered out: {filter_stats['filtered_batches']} ({filter_stats['filter_ratio'] * 100:.1f}%)"
+    )
+    print(f"  Batches used: {filter_stats['kept_batches']}")
 
     print("ALPIN-enhanced training complete!")
 
