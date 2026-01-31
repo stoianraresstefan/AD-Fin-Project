@@ -23,3 +23,11 @@ dependencies = [
 
 [tool.uv]
 managed = true
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["alpin*"]
+exclude = ["notebooks*", "docs*"]
