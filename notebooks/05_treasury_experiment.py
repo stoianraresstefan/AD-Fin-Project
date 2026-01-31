@@ -358,6 +358,8 @@ if PYTORCH_AVAILABLE:
         max_prediction_length=MAX_PREDICTION_LENGTH,
         time_varying_unknown_reals=["value"],
         time_varying_known_reals=["year", "month", "day_of_week"],
+        add_relative_time_idx=True,
+        add_target_scales=True,
         target_normalizer=GroupNormalizer(groups=["group"]),
     )
 
@@ -379,32 +381,72 @@ if PYTORCH_AVAILABLE:
 
     # Train baseline DeepAR
     print("\nTraining Baseline DeepAR...")
-    baseline_model = DeepAR.from_dataset(
+    baseline_deepar = DeepAR.from_dataset(
         training,
-        learning_rate=LEARNING_RATE,
         hidden_size=64,
         rnn_layers=2,
         dropout=0.1,
-        loss=MAE(),
+        learning_rate=LEARNING_RATE,
+        log_interval=10,
+        log_val_interval=1,
+        reduce_on_plateau_patience=3,
     )
 
-    trainer = pl.Trainer(
+    print(
+        f"Baseline DeepAR parameters: {sum(p.numel() for p in baseline_deepar.parameters()):,}"
+    )
+
+    baseline_trainer = pl.Trainer(
         max_epochs=MAX_EPOCHS,
-        accelerator="auto",
-        enable_model_summary=True,
         gradient_clip_val=0.1,
-        callbacks=[EarlyStopping(monitor="val_loss", patience=5, mode="min")],
+        limit_train_batches=50,  # Limit for quick demo
+        limit_val_batches=20,
+        enable_progress_bar=True,
+        enable_model_summary=False,
         logger=False,
-        enable_checkpointing=False,
     )
 
-    trainer.fit(
-        baseline_model,
+    print("Training Baseline DeepAR...")
+    baseline_trainer.fit(
+        baseline_deepar,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
-
     print("Baseline training complete!")
+
+# %%
+# Generate baseline predictions
+baseline_predictions = baseline_deepar.predict(
+    val_dataloader, return_y=True, mode="prediction"
+)
+
+# Extract predictions and actuals
+baseline_preds = baseline_predictions.output
+baseline_actuals = baseline_predictions.y[0]
+
+print(f"Baseline predictions shape: {baseline_preds.shape}")
+print(f"Baseline actuals shape: {baseline_actuals.shape}")
+
+
+# %%
+# Calculate baseline metrics
+def calculate_forecast_metrics(
+    predictions: torch.Tensor, actuals: torch.Tensor
+) -> Dict[str, float]:
+    """Calculate MAE and RMSE for forecasts."""
+    preds = predictions.cpu().numpy().flatten()
+    actual = actuals.cpu().numpy().flatten()
+
+    mae = np.mean(np.abs(preds - actual))
+    rmse = np.sqrt(np.mean((preds - actual) ** 2))
+
+    return {"MAE": mae, "RMSE": rmse}
+
+
+baseline_metrics = calculate_forecast_metrics(baseline_preds, baseline_actuals)
+print("Baseline DeepAR Metrics:")
+print(f"  MAE:  {baseline_metrics['MAE']:.4f}")
+print(f"  RMSE: {baseline_metrics['RMSE']:.4f}")
 
 # %% [markdown]
 # ## 13. ALPIN-Enhanced DeepAR (BatchCP Filtering)
@@ -545,29 +587,37 @@ if PYTORCH_AVAILABLE:
     print(f"  Encoder length: {MAX_ENCODER_LENGTH}")
     print(f"  Tolerance: 10")
 
-    # Train ALPIN-enhanced DeepAR
-    print("\nTraining ALPIN-Enhanced DeepAR (BatchCP)...")
-    enhanced_model = DeepAR.from_dataset(
+    # Create ALPIN-enhanced DeepAR model (same architecture as baseline)
+    alpin_deepar = DeepAR.from_dataset(
         training,
-        learning_rate=LEARNING_RATE,
         hidden_size=64,
         rnn_layers=2,
         dropout=0.1,
-        loss=MAE(),
+        learning_rate=LEARNING_RATE,
+        log_interval=10,
+        log_val_interval=1,
+        reduce_on_plateau_patience=3,
     )
 
-    trainer_filtered = pl.Trainer(
+    print(
+        f"ALPIN-Enhanced DeepAR parameters: {sum(p.numel() for p in alpin_deepar.parameters()):,}"
+    )
+
+    # %%
+    # Create trainer for ALPIN-enhanced model with filtered dataloader
+    alpin_trainer = pl.Trainer(
         max_epochs=MAX_EPOCHS,
-        accelerator="auto",
-        enable_model_summary=True,
         gradient_clip_val=0.1,
-        callbacks=[EarlyStopping(monitor="val_loss", patience=5, mode="min")],
+        limit_train_batches=50,
+        limit_val_batches=20,
+        enable_progress_bar=True,
+        enable_model_summary=False,
         logger=False,
-        enable_checkpointing=False,
     )
 
-    trainer_filtered.fit(
-        enhanced_model,
+    print("Training ALPIN-Enhanced DeepAR with BatchCP filtering...")
+    alpin_trainer.fit(
+        alpin_deepar,
         train_dataloaders=filtered_train_dataloader,
         val_dataloaders=val_dataloader,
     )
@@ -581,7 +631,28 @@ if PYTORCH_AVAILABLE:
     )
     print(f"  Batches used: {filter_stats['kept_batches']}")
 
-    print("ALPIN-enhanced training complete!")
+    print("\nALPIN-Enhanced training complete!")
+
+# %%
+# Generate ALPIN-enhanced predictions
+alpin_deepar.eval()
+
+alpin_predictions = alpin_deepar.predict(
+    val_dataloader, return_y=True, mode="prediction"
+)
+
+alpin_preds = alpin_predictions.output
+alpin_actuals = alpin_predictions.y[0]
+
+print(f"ALPIN predictions shape: {alpin_preds.shape}")
+print(f"ALPIN actuals shape: {alpin_actuals.shape}")
+
+# %%
+# Calculate ALPIN-enhanced metrics
+alpin_metrics = calculate_forecast_metrics(alpin_preds, alpin_actuals)
+print("ALPIN-Enhanced DeepAR Metrics:")
+print(f"  MAE:  {alpin_metrics['MAE']:.4f}")
+print(f"  RMSE: {alpin_metrics['RMSE']:.4f}")
 
 # %% [markdown]
 # ## 14. Evaluate on Test Set
@@ -599,7 +670,7 @@ if PYTORCH_AVAILABLE:
     print("Evaluating models on test set...")
 
     # Baseline predictions
-    baseline_predictions = baseline_model.predict(
+     baseline_predictions = baseline_deepar.predict(
         test_dataloader, mode="prediction", return_x=True
     )
     baseline_actuals = torch.cat([x for x, _ in test_dataloader])
@@ -607,7 +678,7 @@ if PYTORCH_AVAILABLE:
     baseline_rmse = RMSE()(baseline_predictions.output, baseline_actuals).item()
 
     # Enhanced predictions
-    enhanced_predictions = enhanced_model.predict(
+     enhanced_predictions = alpin_deepar.predict(
         test_dataloader, mode="prediction", return_x=True
     )
     enhanced_actuals = torch.cat([x for x, _ in test_dataloader])
