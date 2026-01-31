@@ -19,45 +19,11 @@ def generate_signal(
     protocol: Literal["I", "II"] = "I",
 ) -> tuple[np.ndarray, list[int]]:
     """
-    Generate a piecewise constant signal with noise per paper specifications.
+    Generates a piecewise constant signal with random changepoints, jump amplitudes, and Gaussian noise per paper specifications.
+    Supports Protocol I (all changepoints) and Protocol II (amplitude filtering > 3).
 
-    Creates a synthetic signal with random changepoints, jump amplitudes, and
-    additive Gaussian noise. Supports two annotation protocols:
-    - Protocol I: All changepoints included (default)
-    - Protocol II: Only changepoints with |amplitude| > 3
-
-    Parameters
-    ----------
-    n_samples : int
-        Number of samples in the signal
-    n_changepoints : int, optional
-        Number of changepoints. If None, randomly chosen from {3, 4, 5, 6, 7}
-    noise_std : float, optional
-        Standard deviation of Gaussian noise (default: 1.0)
-    seed : int, optional
-        Random seed for reproducibility
-    protocol : {"I", "II"}, optional
-        Labeling protocol:
-        - "I": All changepoints included
-        - "II": Only changepoints with |amplitude| > 3
-        Default: "I"
-
-    Returns
-    -------
-    signal : np.ndarray
-        Generated noisy piecewise constant signal of shape (n_samples,)
-    changepoints : list[int]
-        List of changepoint indices (sample positions where regime changes)
-        Indices are in range [0, n_samples)
-
-    Notes
-    -----
-    Paper specifications (Section 5.1):
-    - Changepoints: 3-7 per signal
-    - Regime lengths: 5%-30% of signal (uniform distribution)
-    - Jump amplitudes: 1-5 (uniform), ± (random sign)
-    - Noise: Gaussian N(0, σ²)
-    - Protocol II filters changepoints where |amplitude| <= 3
+    Input: n_samples (int) - signal length, n_changepoints (int or None) - number of changepoints, noise_std (float) - Gaussian noise std, seed (int or None) - reproducibility, protocol (str) - "I" or "II"
+    Output: tuple of (np.ndarray signal, list of int changepoint indices)
     """
     if seed is not None:
         np.random.seed(seed)
@@ -127,33 +93,10 @@ def generate_synthetic_signals(
     protocol: Literal["I", "II"] = "I",
 ) -> tuple[list[np.ndarray], list[list[int]]]:
     """
-    Generate a batch of synthetic signals with ground truth changepoints.
+    Generates a batch of synthetic signals with ground truth changepoints, each created using generate_signal with incremented seed for variation.
 
-    Parameters
-    ----------
-    n_signals : int, optional
-        Number of signals to generate (default: 100)
-    n_samples : int, optional
-        Number of samples per signal (default: 500)
-    noise_std : float, optional
-        Standard deviation of Gaussian noise (default: 1.0)
-    seed : int, optional
-        Random seed for reproducibility. If provided, each signal uses
-        seed + signal_index for deterministic generation
-    protocol : {"I", "II"}, optional
-        Labeling protocol for all signals (default: "I")
-
-    Returns
-    -------
-    signals : list[np.ndarray]
-        List of generated signals, each of shape (n_samples,)
-    truths : list[list[int]]
-        List of ground truth changepoint lists, one per signal
-
-    Notes
-    -----
-    If seed is provided, each signal is generated with seed+index to ensure
-    reproducibility while creating different signals.
+    Input: n_signals (int) - number of signals, n_samples (int) - signal length, noise_std (float) - noise std, seed (int or None) - base seed, protocol (str) - "I" or "II"
+    Output: tuple of (list of np.ndarray signals, list of list of int changepoints)
     """
     signals = []
     truths = []
@@ -179,51 +122,11 @@ def alpin_signals_to_deepar_df(
     start_date: str = "2020-01-01",
 ) -> pd.DataFrame:
     """
-    Convert ALPIN synthetic signals into pandas DataFrame for pytorch-forecasting.
+    Converts ALPIN synthetic signals into a pandas DataFrame compatible with pytorch-forecasting's TimeSeriesDataSet.
+    Combines multiple signals as separate time series with daily timestamps and series_id labels.
 
-    Transforms a list of 1D ALPIN signals and their changepoints into a single
-    pandas DataFrame compatible with pytorch-forecasting's TimeSeriesDataSet.
-    Combines multiple signals as separate time series with series_id labels.
-
-    Parameters
-    ----------
-    signals : list[np.ndarray]
-        List of 1D numpy arrays representing ALPIN signals
-    changepoints_list : list[list[int]]
-        List of changepoint lists, one per signal. Each inner list contains
-        indices where regime changes occur.
-    start_date : str, optional
-        Starting date in 'YYYY-MM-DD' format (default: "2020-01-01")
-        Dates increment daily for each time step.
-
-    Returns
-    -------
-    df : pd.DataFrame
-        DataFrame with columns:
-        - time_idx : int - Sequential time index (resets per series)
-        - date : datetime - Timestamps starting from start_date
-        - value : float - Signal values
-        - series_id : str - Series identifier ("series_0", "series_1", etc.)
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from alpin.data.synthetic import alpin_signals_to_deepar_df
-    >>>
-    >>> # Create two sample signals
-    >>> signals = [np.array([1.0, 1.5, 2.0, 1.8]), np.array([0.5, 0.3, 0.1])]
-    >>> changepoints = [[1, 2], [1]]
-    >>>
-    >>> df = alpin_signals_to_deepar_df(signals, changepoints)
-    >>> print(df)
-       time_idx       date  value  series_id
-    0         0 2020-01-01    1.0   series_0
-    1         1 2020-01-02    1.5   series_0
-    2         2 2020-01-03    2.0   series_0
-    3         3 2020-01-04    1.8   series_0
-    4         0 2020-01-01    0.5   series_1
-    5         1 2020-01-02    0.3   series_1
-    6         2 2020-01-03    0.1   series_1
+    Input: signals (list of np.ndarray) - list of 1D signals, changepoints_list (list of list of int) - changepoints per signal, start_date (str) - starting date YYYY-MM-DD
+    Output: pd.DataFrame with columns time_idx, date, value, series_id
     """
     # Parse start date
     base_date = pd.to_datetime(start_date)

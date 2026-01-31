@@ -34,27 +34,11 @@ def plot_signal(
     show: bool = True,
 ) -> Optional[matplotlib.figure.Figure]:
     """
-    Create a static publication-quality plot of the signal and changepoints.
+    Creates a publication-quality static plot showing the signal with optional ground truth and predicted changepoints as vertical lines.
+    Returns figure object if show=False for further customization, otherwise displays and returns None.
 
-    Parameters
-    ----------
-    signal : np.ndarray
-        The 1D time series signal.
-    true_changepoints : list[int], optional
-        Indices of ground truth changepoints.
-    pred_changepoints : list[int], optional
-        Indices of predicted changepoints.
-    title : str
-        Title of the plot.
-    figsize : tuple
-        Figure size (width, height).
-    show : bool
-        Whether to display the plot immediately.
-
-    Returns
-    -------
-    matplotlib.figure.Figure or None
-        The figure object if show=False, otherwise None.
+    Input: signal (np.ndarray) - 1D signal array, true_changepoints (list of int or None) - ground truth indices, pred_changepoints (list of int or None) - predicted indices, title (str) - plot title, figsize (tuple) - (width, height), show (bool) - display immediately
+    Output: matplotlib.figure.Figure or None - figure object if show=False, else None after display
     """
     fig, ax = plt.subplots(figsize=figsize, dpi=100)
 
@@ -109,26 +93,11 @@ def plot_metrics_comparison(
     show: bool = True,
 ) -> Optional[matplotlib.figure.Figure]:
     """
-    Create a grouped bar chart comparing metrics across different methods.
+    Creates a grouped bar chart comparing metrics across different methods with labeled values.
+    Groups methods on x-axis and metrics as bars, automatically selecting all common keys if not specified.
 
-    Parameters
-    ----------
-    metrics_dict : dict
-        Dictionary where keys are method names and values are dictionaries
-        of {metric_name: value}.
-        Example: {'Method A': {'F1': 0.8, 'Recall': 0.7}, ...}
-    title : str
-        Plot title.
-    metric_keys : list[str], optional
-        Specific metrics to plot. If None, plots all common keys.
-    figsize : tuple
-        Figure size.
-    show : bool
-        Whether to display the plot.
-
-    Returns
-    -------
-    matplotlib.figure.Figure or None
+    Input: metrics_dict (dict) - keys are method names, values are metric dicts, title (str) - plot title, metric_keys (list of str or None) - specific metrics to plot, figsize (tuple) - (width, height), show (bool) - display
+    Output: matplotlib.figure.Figure or None - figure object if show=False, else None after display
     """
     if not metrics_dict:
         warnings.warn("No metrics provided to plot.")
@@ -187,23 +156,11 @@ def plot_signal_interactive(
     title: str = "Interactive Signal View",
 ) -> go.Figure:
     """
-    Create an interactive Plotly figure for signal exploration.
+    Creates an interactive Plotly figure for signal exploration with hover details and zoom capability.
+    Displays ground truth and predicted changepoints as vertical lines with legend and annotations.
 
-    Parameters
-    ----------
-    signal : np.ndarray
-        The 1D signal.
-    true_changepoints : list[int], optional
-        Ground truth indices.
-    pred_changepoints : list[int], optional
-        Predicted indices.
-    title : str
-        Plot title.
-
-    Returns
-    -------
-    go.Figure
-        The Plotly figure object.
+    Input: signal (np.ndarray) - 1D signal array, true_changepoints (list of int or None) - ground truth indices, pred_changepoints (list of int or None) - predicted indices, title (str) - plot title
+    Output: go.Figure - Plotly figure object with interactive controls
     """
     fig = go.Figure()
 
@@ -290,28 +247,11 @@ def plot_sweep_results(
     show: bool = True,
 ) -> Optional[matplotlib.figure.Figure]:
     """
-    Plot parameter sweep results with error bands (if multiple runs exist).
+    Plots parameter sweep results with error bands showing confidence intervals when multiple runs per point exist.
+    Groups results optionally by category column, computing mean and std for each group.
 
-    Parameters
-    ----------
-    results_df : pd.DataFrame
-        DataFrame containing sweep results.
-    x_col : str
-        Column name for x-axis (parameter).
-    y_col : str
-        Column name for y-axis (metric).
-    group_col : str, optional
-        Column to group by (e.g., 'method' or 'dataset').
-    title : str
-        Plot title.
-    figsize : tuple
-        Figure size.
-    show : bool
-        Whether to display the plot.
-
-    Returns
-    -------
-    matplotlib.figure.Figure or None
+    Input: results_df (pd.DataFrame) - sweep results, x_col (str) - x-axis column, y_col (str) - y-axis metric, group_col (str or None) - grouping column, title (str) - plot title, figsize (tuple) - (width, height), show (bool) - display
+    Output: matplotlib.figure.Figure or None - figure object if show=False, else None after display
     """
     fig, ax = plt.subplots(figsize=figsize, dpi=100)
 

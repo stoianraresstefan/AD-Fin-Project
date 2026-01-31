@@ -12,94 +12,50 @@ import pandas as pd
 
 
 class DataLoader(Protocol):
-    """Protocol for pluggable data loaders.
+    """
+    Protocol interface for pluggable data loaders that support flexible loading of time series data.
+    Any implementing class can load signals from files and optionally return associated labels.
 
-    Any class implementing this protocol can load time series data from a file
-    and optionally return associated labels.
+    Input: path (str) - file path to load
+    Output: tuple of np.ndarray (signal) and list of int or None (labels)
     """
 
     def load(self, path: str) -> tuple[np.ndarray, list[int] | None]:
-        """Load signal and optional labels from a file.
+        """
+        Loads signal and optional labels from a file.
 
-        Parameters
-        ----------
-        path : str
-            Path to the data file
-
-        Returns
-        -------
-        signal : np.ndarray
-            1D array of signal values
-        labels : list[int] | None
-            List of changepoint indices, or None if no labels present
-
-        Raises
-        ------
-        FileNotFoundError
-            If the file does not exist
-        ValueError
-            If the file format is invalid or required columns are missing
+        Input: path (str) - path to the data file
+        Output: tuple (np.ndarray signal, list of int or None labels)
         """
         ...
 
 
 class CSVLoader:
-    """Load time series signals from CSV files.
+    """
+    Loads time series signals from CSV files with optional changepoint labels.
+    Extracts signal and label columns, parsing labels as comma-separated integer changepoint indices.
 
-    Extracts a signal column and optional label column from CSV files.
-    Labels are expected as comma-separated integer indices (changepoint positions).
-
-    Parameters
-    ----------
-    signal_column : str, optional
-        Name of the column containing signal values (default: "value")
-    label_column : str | None, optional
-        Name of the column containing labels as comma-separated integers.
-        If None, no labels are returned (default: None)
-
-    Examples
-    --------
-    >>> loader = CSVLoader(signal_column="signal")
-    >>> signal, labels = loader.load("data.csv")
-    >>> signal.shape
-    (1000,)
+    Input: signal_column (str) - name of signal column (default: "value"), label_column (str or None) - name of label column
+    Output: tuple of (np.ndarray signal, list of int or None labels)
     """
 
     def __init__(self, signal_column: str = "value", label_column: str | None = None):
-        """Initialize the CSV loader.
+        """
+        Initializes the CSV loader with column names for signals and labels.
 
-        Parameters
-        ----------
-        signal_column : str, optional
-            Column name for signal data (default: "value")
-        label_column : str | None, optional
-            Column name for labels (default: None)
+        Input: signal_column (str) - column name for signal data, label_column (str or None) - column name for labels
+        Output: None - initializes instance attributes
         """
         self.signal_column = signal_column
         self.label_column = label_column
 
     def load(self, path: str) -> tuple[np.ndarray, list[int] | None]:
-        """Load signal and labels from a CSV file.
+        """
+        Loads signal and labels from a CSV file, converting signal to float64 and parsing comma-separated label integers.
+        Validates that required columns exist and contain valid numeric values for the signal.
 
-        Parameters
-        ----------
-        path : str
-            Path to the CSV file
-
-        Returns
-        -------
-        signal : np.ndarray
-            1D array of signal values (float64)
-        labels : list[int] | None
-            List of changepoint indices, or None if no label column specified
-            or if the label value is empty/NaN
-
-        Raises
-        ------
-        FileNotFoundError
-            If the file does not exist
-        ValueError
-            If signal_column is missing or contains non-numeric values
+        Input: path (str) - path to the CSV file
+        Output: tuple of (np.ndarray signal, list of int or None labels)
         """
         path_obj = Path(path)
 
@@ -161,38 +117,12 @@ class CSVLoader:
 def load_directory(
     path: str, loader: DataLoader
 ) -> tuple[list[np.ndarray], list[list[int] | None]]:
-    """Load all CSV files from a directory using the provided loader.
+    """
+    Loads all CSV files from a directory in alphabetical order using the provided loader.
+    Non-recursive directory search that returns lists of signals and their associated labels.
 
-    Loads all .csv files found in the directory (non-recursive).
-    Files are processed in alphabetical order.
-
-    Parameters
-    ----------
-    path : str
-        Path to the directory containing CSV files
-    loader : DataLoader
-        A data loader implementing the DataLoader protocol
-
-    Returns
-    -------
-    signals : list[np.ndarray]
-        List of loaded signal arrays
-    labels : list[list[int] | None]
-        List of label lists (or None entries)
-
-    Raises
-    ------
-    FileNotFoundError
-        If the directory does not exist
-    ValueError
-        If no CSV files are found in the directory
-
-    Examples
-    --------
-    >>> loader = CSVLoader()
-    >>> signals, labels = load_directory("data/", loader)
-    >>> len(signals)
-    5
+    Input: path (str) - directory path containing CSV files, loader (DataLoader) - loader implementing DataLoader protocol
+    Output: tuple of (list of np.ndarray signals, list of lists of int or None labels)
     """
     dir_path = Path(path)
 

@@ -21,37 +21,11 @@ def hausdorff_distance(
     tolerance: int = 10,
 ) -> float:
     """
-    Calculate Hausdorff distance between predicted and ground truth changepoints.
+    Computes the Hausdorff distance as the maximum of two directed distances: from predictions to truth and vice versa.
+    Each directed distance is the maximum distance from one set to its nearest point in the other.
 
-    The Hausdorff distance is the maximum of two directed distances:
-    - Maximum distance from predicted to nearest ground truth
-    - Maximum distance from ground truth to nearest predicted
-
-    Parameters
-    ----------
-    predicted : List[int]
-        List of predicted changepoint indices.
-    ground_truth : List[int]
-        List of ground truth changepoint indices.
-    signal_length : int
-        Total length of the signal (used for context, not in calculation).
-    tolerance : int, optional
-        Tolerance window (not used in Hausdorff, included for API consistency).
-
-    Returns
-    -------
-    float
-        Hausdorff distance. Returns np.inf if one set is empty and the other is not.
-        Returns 0.0 if both sets are empty.
-
-    Examples
-    --------
-    >>> hausdorff_distance([50, 100], [48, 102], 150)
-    2.0
-    >>> hausdorff_distance([], [50], 100)
-    inf
-    >>> hausdorff_distance([], [], 100)
-    0.0
+    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true changepoint indices, signal_length (int) - total signal length, tolerance (int) - API consistency
+    Output: float - Hausdorff distance, np.inf if one set empty, 0.0 if both empty
     """
     # Edge case: both empty
     if len(predicted) == 0 and len(ground_truth) == 0:
@@ -83,32 +57,11 @@ def precision(
     tolerance: int = 10,
 ) -> float:
     """
-    Calculate precision: fraction of predicted changepoints within tolerance of ground truth.
+    Computes precision as the fraction of predicted changepoints falling within tolerance of any ground truth changepoint.
+    Returns 1.0 if no predictions, 0.0 if predictions but no ground truth.
 
-    Parameters
-    ----------
-    predicted : List[int]
-        List of predicted changepoint indices.
-    ground_truth : List[int]
-        List of ground truth changepoint indices.
-    signal_length : int
-        Total length of the signal (used for context, not in calculation).
-    tolerance : int, optional
-        Tolerance window in samples (default: 10).
-
-    Returns
-    -------
-    float
-        Precision value in [0, 1]. Returns 1.0 if no predictions (nothing to be wrong about).
-
-    Examples
-    --------
-    >>> precision([50, 100], [48, 102], 150, tolerance=10)
-    1.0
-    >>> precision([50, 200], [48, 102], 250, tolerance=10)
-    0.5
-    >>> precision([], [50], 100)
-    1.0
+    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true indices, signal_length (int) - length, tolerance (int) - tolerance window in samples
+    Output: float - precision value in [0, 1]
     """
     # If no predictions, precision is 1.0 (nothing to be wrong about)
     if len(predicted) == 0:
@@ -138,32 +91,11 @@ def recall(
     tolerance: int = 10,
 ) -> float:
     """
-    Calculate recall: fraction of ground truth changepoints detected within tolerance.
+    Computes recall as the fraction of ground truth changepoints detected within tolerance of any prediction.
+    Returns 1.0 if no ground truth, 0.0 if ground truth but no predictions.
 
-    Parameters
-    ----------
-    predicted : List[int]
-        List of predicted changepoint indices.
-    ground_truth : List[int]
-        List of ground truth changepoint indices.
-    signal_length : int
-        Total length of the signal (used for context, not in calculation).
-    tolerance : int, optional
-        Tolerance window in samples (default: 10).
-
-    Returns
-    -------
-    float
-        Recall value in [0, 1]. Returns 1.0 if no ground truth (nothing to detect).
-
-    Examples
-    --------
-    >>> recall([50, 100], [48, 102], 150, tolerance=10)
-    1.0
-    >>> recall([50], [48, 102], 150, tolerance=10)
-    0.5
-    >>> recall([50], [], 100)
-    1.0
+    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true indices, signal_length (int) - length, tolerance (int) - tolerance window in samples
+    Output: float - recall value in [0, 1]
     """
     # If no ground truth, recall is 1.0 (nothing to detect)
     if len(ground_truth) == 0:
@@ -193,30 +125,11 @@ def annotation_error(
     tolerance: int = 10,
 ) -> int:
     """
-    Calculate annotation error: absolute difference in number of changepoints.
+    Computes the absolute difference in the number of predicted versus ground truth changepoints.
+    Measures over-segmentation or under-segmentation regardless of position accuracy.
 
-    Parameters
-    ----------
-    predicted : List[int]
-        List of predicted changepoint indices.
-    ground_truth : List[int]
-        List of ground truth changepoint indices.
-    signal_length : int
-        Total length of the signal (used for context, not in calculation).
-    tolerance : int, optional
-        Tolerance window (not used in annotation error, included for API consistency).
-
-    Returns
-    -------
-    int
-        Absolute difference in number of changepoints.
-
-    Examples
-    --------
-    >>> annotation_error([50, 100], [48, 102], 150)
-    0
-    >>> annotation_error([50], [48, 102, 200], 250)
-    2
+    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true indices, signal_length (int) - length, tolerance (int) - unused
+    Output: int - absolute difference in count of changepoints
     """
     return abs(len(predicted) - len(ground_truth))
 
@@ -228,37 +141,11 @@ def rand_index(
     tolerance: int = 10,
 ) -> float:
     """
-    Calculate Rand Index: fraction of sample pairs correctly grouped.
+    Computes the adjusted Rand index measuring agreement on sample pair groupings between predictions and ground truth.
+    Converts changepoints to segment labels then computes normalized agreement, with 1.0 = perfect agreement.
 
-    The Rand Index measures the fraction of pairs (i, j) where both predicted
-    and ground truth agree on whether they are in the same segment or different segments.
-
-    This implementation uses the adjusted Rand score from scikit-learn, which is
-    normalized and corrected for chance.
-
-    Parameters
-    ----------
-    predicted : List[int]
-        List of predicted changepoint indices.
-    ground_truth : List[int]
-        List of ground truth changepoint indices.
-    signal_length : int
-        Total length of the signal.
-    tolerance : int, optional
-        Tolerance window (not used in Rand Index, included for API consistency).
-
-    Returns
-    -------
-    float
-        Adjusted Rand Index value. Range is [-1, 1], where 1 is perfect agreement,
-        0 is random labeling, and negative values indicate worse than random.
-
-    Examples
-    --------
-    >>> rand_index([50, 100], [50, 100], 150)
-    1.0
-    >>> rand_index([75], [50, 100], 150)
-    0.333...
+    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true indices, signal_length (int) - total length, tolerance (int) - unused
+    Output: float - adjusted Rand index in [-1, 1], where 1 is perfect, 0 is random, negative is worse than random
     """
 
     # Convert changepoints to segment labels for each time point
@@ -309,38 +196,11 @@ def evaluate_all(
     tolerance: int = 10,
 ) -> Dict[str, float]:
     """
-    Calculate all evaluation metrics at once.
+    Computes all five evaluation metrics (Hausdorff distance, precision, recall, annotation error, Rand index) in one call.
+    Provides a comprehensive assessment of changepoint detection performance across multiple dimensions.
 
-    Parameters
-    ----------
-    predicted : List[int]
-        List of predicted changepoint indices.
-    ground_truth : List[int]
-        List of ground truth changepoint indices.
-    signal_length : int
-        Total length of the signal.
-    tolerance : int, optional
-        Tolerance window for precision/recall (default: 10).
-
-    Returns
-    -------
-    Dict[str, float]
-        Dictionary containing all five metrics:
-        - 'hausdorff_distance': float
-        - 'precision': float
-        - 'recall': float
-        - 'annotation_error': int (cast to float in dict)
-        - 'rand_index': float
-
-    Examples
-    --------
-    >>> metrics = evaluate_all([50, 100], [48, 102], 150, tolerance=10)
-    >>> metrics['precision']
-    1.0
-    >>> metrics['recall']
-    1.0
-    >>> metrics['annotation_error']
-    0
+    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true indices, signal_length (int) - total length, tolerance (int) - tolerance window
+    Output: dict with keys hausdorff_distance, precision, recall, annotation_error, rand_index mapping to float values
     """
     return {
         "hausdorff_distance": hausdorff_distance(

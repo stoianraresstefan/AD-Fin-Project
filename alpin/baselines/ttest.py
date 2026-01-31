@@ -7,46 +7,30 @@ from typing import List
 
 class TTestBaseline:
     """
-    T-test baseline for changepoint detection.
+    Baseline changepoint detector using independent t-tests in a sliding window approach.
+    Compares left and right windows at each position to detect statistical discontinuities.
 
-    Uses a sliding window approach to detect changepoints by comparing
-    the statistical difference between signal segments before and after
-    each position using independent t-tests.
-
-    Attributes:
-        window_fraction: Fraction of signal length to use as window size (default: 0.05)
-        confidence: Confidence level for significance testing (default: 0.95)
+    Input: window_fraction (float) - fraction of signal length for window size, confidence (float) - significance threshold
+    Output: list of int - sorted changepoint indices where statistical difference detected
     """
 
     def __init__(self, window_fraction: float = 0.05, confidence: float = 0.95):
         """
-        Initialize TTestBaseline detector.
+        Initializes the t-test baseline detector with window and confidence parameters.
 
-        Args:
-            window_fraction: Fraction of signal length to use as window size.
-                           Controls sensitivity and computation (default: 0.05).
-            confidence: Confidence level for t-test significance (default: 0.95).
-                       Significance level = 1 - confidence.
+        Input: window_fraction (float) - fraction of signal length for window, confidence (float) - confidence level for significance
+        Output: None - initializes instance attributes
         """
         self.window_fraction = window_fraction
         self.confidence = confidence
 
     def detect(self, signal: np.ndarray) -> List[int]:
         """
-        Detect changepoints in the signal using sliding window t-test.
+        Detects changepoints using t-test comparison on sliding windows across the signal.
+        Performs independent t-tests at each position and merges nearby candidates within window distance.
 
-        Algorithm:
-        1. Compute window size as window_fraction * signal length
-        2. Slide a window across the signal
-        3. At each position, perform t-test comparing left and right windows
-        4. Mark changepoint if p-value < (1 - confidence)
-        5. Merge nearby detections within window_size distance
-
-        Args:
-            signal: Input signal as 1D numpy array.
-
-        Returns:
-            Sorted list of detected changepoint indices.
+        Input: signal (np.ndarray) - 1D signal array
+        Output: list of int - sorted list of detected changepoint indices
         """
         signal = np.asarray(signal, dtype=float)
         n = len(signal)
