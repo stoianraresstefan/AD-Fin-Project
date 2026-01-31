@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: AD-Fin-Project (3.12.6)
+#     display_name: alpin (3.12.12)
 #     language: python
 #     name: python3
 # ---
@@ -677,7 +677,7 @@ print("\n(Positive improvement = ALPIN-Enhanced is better)")
 
 # %%
 # Visualization: Side-by-side metric comparison
-fig, ax = plt.subplots(figsize=(10, 6))
+fig, ax = plt.subplots(figsize=(12, 8))
 
 metrics = ["MAE", "RMSE"]
 x = np.arange(len(metrics))
@@ -712,14 +712,14 @@ ax.set_title(
 ax.set_xticks(x)
 ax.set_xticklabels(metrics, fontsize=12)
 ax.legend(loc="upper right", fontsize=11)
-ax.bar_label(bars1, fmt="%.3f", padding=3, fontsize=10)
-ax.bar_label(bars2, fmt="%.3f", padding=3, fontsize=10)
+ax.bar_label(bars1, fmt="%.3f", padding=3, fontsize=10, label_type="center")
+ax.bar_label(bars2, fmt="%.3f", padding=3, fontsize=10, label_type="center")
 
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 ax.grid(axis="y", linestyle=":", alpha=0.5)
 
-plt.tight_layout()
+# plt.tight_layout()
 plt.show()
 
 # %%

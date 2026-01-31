@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: AD-Fin-Project (3.12.6)
+#     display_name: alpin (3.12.12)
 #     language: python
 #     name: python3
 # ---
@@ -44,7 +44,7 @@ np.random.seed(42)
 # We generate 100 synthetic signals following the specifications in the EUSIPCO 2017 paper. Each signal has 500 samples and between 3 to 7 changepoints.
 
 # %%
-n_signals = 100
+n_signals = 10
 n_samples = 500
 
 signals, truths = generate_synthetic_signals(
@@ -124,7 +124,7 @@ protocol_comparison = []
 
 for p in protocols:
     # Generate data for this protocol
-    p_signals, p_truths = generate_synthetic_signals(n_signals=50, seed=123, protocol=p)
+    p_signals, p_truths = generate_synthetic_signals(n_signals=5, seed=123, protocol=p)
     
     # Train on full set
     model = ALPIN()
