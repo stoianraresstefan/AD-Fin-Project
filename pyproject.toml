@@ -1,12 +1,8 @@
 [project]
-name = "alpin"
+name = "alpin-course-project"
 version = "0.1.0"
-description = "ALPIN: Adaptive Learning of Penalty for INference - Change point detection algorithm"
-readme = "README.md"
+description = "ALPIN course project - Change point detection"
 requires-python = ">=3.10"
-authors = [
-    {name = "ALPIN Team"}
-]
 
 dependencies = [
     "numpy",
@@ -27,13 +23,3 @@ dependencies = [
 
 [tool.uv]
 managed = true
-
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-packages = ["alpin"]
-
-[tool.setuptools.package-dir]
-"" = "."
