@@ -497,52 +497,41 @@ if PYTORCH_AVAILABLE:
         def _batch_contains_changepoint(self, batch: tuple) -> bool:
             """
             Check if any sample in batch has a changepoint in its encoder window.
-
-            Args:
-                batch: Tuple of (x_dict, y_tuple) from TimeSeriesDataSet
-
-            Returns:
-                True if batch should be filtered out
+            
+            FIXED: Correctly handles relative time indices by reconstructing absolute time
+            from decoder position.
             """
             x_dict, y = batch
-
-            # Get encoder time indices - these tell us the time range of each sample
-            # encoder_time_idx has shape (batch_size, encoder_length)
-            if "encoder_time_idx" in x_dict:
-                encoder_times = x_dict["encoder_time_idx"]
-            else:
-                # Fallback: use relative time index if available
-                encoder_times = x_dict.get("time_idx", None)
-                if encoder_times is None:
-                    return False  # Cannot determine, don't filter
-
-            # Get groups to identify which time series each sample belongs to
+            
             groups = x_dict.get("groups", None)
-            if groups is None:
-                # For single time series (treasury), we can assume all samples are from the same group
-                group_id = "treasury"
-            else:
-                group_id = "treasury"  # Treasury notebook uses single group
-
-            batch_size = encoder_times.shape[0]
-
+            group_id = "treasury"
+            
+            if group_id not in self.changepoints_dict:
+                return False
+            
+            decoder_times = None
+            if "decoder_time_idx" in x_dict:
+                decoder_times = x_dict["decoder_time_idx"]
+            
+            if decoder_times is None:
+                return False
+            
+            batch_size = decoder_times.shape[0]
+            
             for i in range(batch_size):
-                # Get time range of this sample's encoder window
-                sample_times = encoder_times[i].cpu().numpy()
-                start_time = int(sample_times.min())
-                end_time = int(sample_times.max())
-
-                # Check if any changepoint falls within encoder window
-                if group_id in self.changepoints_dict:
-                    for cp in self.changepoints_dict[group_id]:
-                        # Check if changepoint (with tolerance) overlaps encoder window
-                        if (
-                            (start_time - self.tolerance)
-                            <= cp
-                            <= (end_time + self.tolerance)
-                        ):
-                            return True
-
+                sample_decoder_times = decoder_times[i].cpu().numpy()
+                
+                if len(sample_decoder_times) == 0:
+                    continue
+                
+                decoder_end = int(sample_decoder_times[-1])
+                encoder_end = decoder_end - len(sample_decoder_times)
+                encoder_start = encoder_end - self.encoder_length + 1
+                
+                for cp in self.changepoints_dict[group_id]:
+                    if (encoder_start - self.tolerance) <= cp <= (encoder_end + self.tolerance):
+                        return True
+            
             return False
 
         def __iter__(self) -> Iterator:

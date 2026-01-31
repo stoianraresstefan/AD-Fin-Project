@@ -447,51 +447,42 @@ class ChangePointAwareDataLoader:
         """
         Check if any sample in batch has a changepoint in its encoder window.
 
-        Args:
-            batch: Tuple of (x_dict, y_tuple) from TimeSeriesDataSet
-
-        Returns:
-            True if batch should be filtered out
+        FIXED: Correctly handles relative time indices by reconstructing absolute time
+        from decoder position.
         """
         x_dict, y = batch
 
-        # Get encoder time indices - these tell us the time range of each sample
-        # encoder_time_idx has shape (batch_size, encoder_length)
-        if "encoder_time_idx" in x_dict:
-            encoder_times = x_dict["encoder_time_idx"]
-        else:
-            # Fallback: use relative time index if available
-            encoder_times = x_dict.get("time_idx", None)
-            if encoder_times is None:
-                return False  # Cannot determine, don't filter
-
-        # Get series groups to identify which series each sample belongs to
         groups = x_dict.get("groups", None)
         if groups is None:
-            return False  # Cannot determine series, don't filter
+            return False
 
-        batch_size = encoder_times.shape[0]
+        batch_size = groups.shape[0]
 
         for i in range(batch_size):
-            # Get time range of this sample's encoder window
-            sample_times = encoder_times[i].cpu().numpy()
-            start_time = int(sample_times.min())
-            end_time = int(sample_times.max())
-
-            # Get series ID for this sample
-            series_idx = int(groups[i, 0].item())  # First group dimension is series
+            series_idx = int(groups[i, 0].item())
             series_id = f"series_{series_idx}"
 
-            # Check if any changepoint falls within encoder window
-            if series_id in self.changepoints_dict:
-                for cp in self.changepoints_dict[series_id]:
-                    # Check if changepoint (with tolerance) overlaps encoder window
-                    if (
-                        (start_time - self.tolerance)
-                        <= cp
-                        <= (end_time + self.tolerance)
-                    ):
-                        return True
+            if series_id not in self.changepoints_dict:
+                continue
+
+            decoder_times = None
+            if "decoder_time_idx" in x_dict:
+                decoder_times = x_dict["decoder_time_idx"][i].cpu().numpy()
+
+            if decoder_times is None or len(decoder_times) == 0:
+                continue
+
+            decoder_end = int(decoder_times[-1])
+            encoder_end = decoder_end - len(decoder_times)
+            encoder_start = encoder_end - self.encoder_length + 1
+
+            for cp in self.changepoints_dict[series_id]:
+                if (
+                    (encoder_start - self.tolerance)
+                    <= cp
+                    <= (encoder_end + self.tolerance)
+                ):
+                    return True
 
         return False
 
