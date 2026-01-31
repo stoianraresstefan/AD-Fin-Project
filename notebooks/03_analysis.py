@@ -15,12 +15,12 @@
 # %% [markdown]
 # # ALPIN Analysis and Method Comparison
 #
-# This notebook provides a comprehensive analysis of the ALPIN algorithm, including:
-# 1. **ALPIN vs T-test Baseline Comparison** - Evaluating ALPIN against a classical statistical approach
-# 2. **Noise Robustness Analysis** - Testing how performance degrades with increasing noise
-# 3. **Publication-Quality Figures** - Generating figures suitable for academic papers
+# This notebook provides
+# 1. ALPIN vs T-test Baseline Comparison 
+# 2. Noise Robustness Analysis 
+# 3. Figures
 #
-# By the end of this notebook, you will understand when ALPIN excels and where its limitations lie.
+#
 
 # %% [markdown]
 # ## 1. Setup and Imports
@@ -53,7 +53,7 @@ print("Setup complete!")
 # %% [markdown]
 # ## 2. Data Generation & Model Training
 #
-# We generate 50 synthetic signals with 200 samples each. These signals contain piecewise constant segments with Gaussian noise, mimicking real-world changepoint detection scenarios.
+# We generate 50 synthetic signals with 200 samples each. These signals contain piecewise constant segments with Gaussian noise
 
 # %%
 # Generate training signals
@@ -71,47 +71,34 @@ print(f"Generated {len(signals)} signals, each with {n_samples} samples.")
 print(f"Average changepoints per signal: {np.mean([len(t) for t in truths]):.1f}")
 
 # %%
-# Train ALPIN model
 model = ALPIN()
 model.fit(signals, truths)
 
 print(f"Learned optimal beta: {model.beta_opt:.4f}")
 
 # %% [markdown]
-# ### What ALPIN Learned
-#
-# The learned $\beta$ parameter controls the trade-off between data fidelity and model complexity:
-# - **Higher $\beta$**: Fewer changepoints detected (more conservative)
-# - **Lower $\beta$**: More changepoints detected (more sensitive)
-#
-# ALPIN automatically finds the $\beta$ that minimizes the average excess penalized risk, adapting to the signal characteristics in the training data. Typical learned $\beta$ values range from 10-200 depending on noise levels and jump amplitudes.
-
-# %% [markdown]
 # ## 3. ALPIN vs T-Test Baseline Comparison
 #
-# We compare ALPIN against a classical T-test baseline. The T-test detector uses a sliding window approach, comparing adjacent segments using independent t-tests to detect significant mean shifts.
+# The T-test detector uses a sliding window approach, comparing adjacent segments using independent t-tests to detect significant mean shifts
 
 # %%
-# Initialize T-test baseline
 ttest_baseline = TTestBaseline(window_fraction=0.05, confidence=0.95)
 
 print(f"T-test parameters:")
-print(f"  - Window fraction: {ttest_baseline.window_fraction}")
-print(f"  - Confidence level: {ttest_baseline.confidence}")
+print(f"Window fraction: {ttest_baseline.window_fraction}")
+print(f"Confidence level: {ttest_baseline.confidence}")
 
 # %%
-# Generate test signals (separate from training)
 test_signals, test_truths = generate_synthetic_signals(
     n_signals=10,
     n_samples=n_samples,
     noise_std=1.0,
-    seed=999  # Different seed for test data
+    seed=999
 )
 
 print(f"Generated {len(test_signals)} test signals for evaluation.")
 
 # %%
-# Evaluate both methods on test signals
 alpin_metrics_list = []
 ttest_metrics_list = []
 
@@ -126,14 +113,12 @@ for signal, truth in zip(test_signals, test_truths):
     ttest_m = evaluate_all(ttest_pred, truth, len(signal), tolerance=10)
     ttest_metrics_list.append(ttest_m)
 
-# Aggregate metrics
 alpin_avg = pd.DataFrame(alpin_metrics_list).mean().to_dict()
 ttest_avg = pd.DataFrame(ttest_metrics_list).mean().to_dict()
 
 print("Evaluation complete!")
 
 # %%
-# Create comparison table
 comparison_df = pd.DataFrame({
     'Metric': list(alpin_avg.keys()),
     'ALPIN': [f"{v:.4f}" for v in alpin_avg.values()],
@@ -144,7 +129,6 @@ print("\n=== Comparison Table: ALPIN vs T-Test Baseline ===")
 display(comparison_df)
 
 # %%
-# Visualize comparison
 metrics_comparison = {
     'ALPIN': alpin_avg,
     'T-Test Baseline': ttest_avg
@@ -158,34 +142,13 @@ plot_metrics_comparison(
 )
 
 # %% [markdown]
-# ### Discussion: Which Method Performs Better?
-#
-# From the comparison above, we can observe:
-#
-# **ALPIN Advantages:**
-# - Learns the optimal penalty from data, adapting to signal characteristics
-# - Generally achieves better balance between precision and recall
-# - Provides theoretical guarantees based on minimizing penalized risk
-#
-# **T-Test Advantages:**
-# - Simple and interpretable
-# - No training required
-# - Works well when jump sizes are consistently large
-#
-# The T-test baseline may struggle with:
-# - Small jump sizes relative to noise
-# - Variable segment lengths
-# - Signals requiring different sensitivity levels
-
-# %% [markdown]
 # ## 4. Noise Robustness Analysis
 #
-# A critical question for any changepoint detection method: **How does performance degrade as noise increases?**
+# A relevant question for a changepoint detection method: How does performance degrade as noise increases?
 #
-# We test ALPIN (with fixed $\beta$) at different noise levels: 0.5, 1.0, 2.0, and 5.0.
+# We test ALPIN (with fixed beta) at different noise levels: 0.5, 1.0, 2.0, and 5.0.
 
 # %%
-# Run noise sweep experiment
 noise_levels = [0.5, 1.0, 2.0, 5.0]
 
 noise_results = sweep_noise(
@@ -201,49 +164,32 @@ print(f"Noise sweep complete! Results shape: {noise_results.shape}")
 display(noise_results.groupby('noise_std').mean())
 
 # %%
-# Plot noise sweep results - Precision
 plot_sweep_results(
     noise_results,
     x_col='noise_std',
     y_col='precision',
-    title='Precision vs Noise Level (ALPIN)',
+    title='Precision vs Noise Level )',
     figsize=(10, 6)
 )
 
 # %%
-# Plot noise sweep results - Recall
 plot_sweep_results(
     noise_results,
     x_col='noise_std',
     y_col='recall',
-    title='Recall vs Noise Level (ALPIN)',
+    title='Recall vs Noise Level',
     figsize=(10, 6)
 )
 
 # %% [markdown]
-# ### Noise Robustness Analysis
+# ## 5. Side-by-Side prediction 
 #
-# From the plots above, we observe:
-#
-# 1. **Low Noise (σ = 0.5)**: Excellent performance, high precision and recall.
-# 2. **Moderate Noise (σ = 1.0)**: Slight degradation but still robust.
-# 3. **High Noise (σ = 2.0)**: Noticeable performance drop, especially in precision.
-# 4. **Very High Noise (σ = 5.0)**: Significant degradation; the noise magnitude may exceed jump sizes.
-#
-# **Key Insight**: The learned $\beta$ is optimized for a specific noise level (σ = 1.0 in training). When noise deviates significantly from training conditions, performance suffers. This suggests **adaptive or noise-aware $\beta$ selection** could be beneficial.
-
-# %% [markdown]
-# ## 5. Side-by-Side Prediction Example
-#
-# Let's visualize a single signal with predictions from both methods to understand their differences qualitatively.
 
 # %%
-# Select one test signal for detailed comparison
 example_idx = 0
 example_signal = test_signals[example_idx]
 example_truth = test_truths[example_idx]
 
-# Get predictions from both methods
 alpin_pred = model.predict(example_signal)
 ttest_pred = ttest_baseline.detect(example_signal)
 
@@ -252,7 +198,6 @@ print(f"ALPIN predictions: {alpin_pred}")
 print(f"T-Test predictions: {ttest_pred}")
 
 # %%
-# Plot ALPIN prediction
 plot_signal(
     example_signal,
     true_changepoints=example_truth,
@@ -270,22 +215,9 @@ plot_signal(
 )
 
 # %% [markdown]
-# ### Visual Comparison Discussion
+# ## 6.Figures
 #
-# Observing the two plots above:
 #
-# - **ALPIN** typically provides more accurate localization due to the learned penalty that balances detection sensitivity.
-# - **T-Test** may detect spurious changepoints in noisy regions or miss subtle changes.
-#
-# The difference is most pronounced when:
-# - Jump amplitudes are small relative to noise
-# - Segments have varying lengths
-# - The optimal detection sensitivity varies across the signal
-
-# %% [markdown]
-# ## 6. Publication-Quality Figures
-#
-# We now create three polished figures suitable for academic publications.
 
 # %%
 # Figure 1: Metrics Comparison Bar Chart
@@ -372,7 +304,6 @@ plt.show()
 print("Figure 2 saved as 'figure2_noise_sweep.png'")
 
 # %%
-# Figure 3: Example Prediction Comparison (side-by-side)
 fig3, axes = plt.subplots(2, 1, figsize=(12, 8), dpi=150, sharex=True)
 
 # Common x-axis

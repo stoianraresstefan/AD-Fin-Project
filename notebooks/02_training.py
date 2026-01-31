@@ -15,12 +15,7 @@
 # %% [markdown]
 # # ALPIN Training Workflow
 #
-# This notebook demonstrates the comprehensive training workflow for the ALPIN (Adaptive Learning of Penalty for INference) algorithm. We will cover:
-# 1. Synthetic data generation
-# 2. Model training with cross-validation
-# 3. Performance evaluation using multiple metrics
-# 4. Comparison of labeling protocols (Protocol I vs. Protocol II)
-# 5. Hyperparameter sweep visualization
+#
 
 # %%
 import numpy as np
@@ -35,7 +30,6 @@ from alpin.metrics import evaluate_all
 from alpin.experiments.sweep import sweep_beta
 from alpin.visualization import plot_signal, plot_sweep_results
 
-# Set random seed for reproducibility
 np.random.seed(42)
 
 # %% [markdown]
@@ -62,12 +56,6 @@ plt.show()
 # %% [markdown]
 # ## 2. Training with Cross-Validation
 #
-# We use 10-fold cross-validation to evaluate the stability of the learned penalty parameter $\beta$ and the model's generalization performance.
-#
-# ### Why Cross-Validation?
-# Cross-validation ensures that our evaluation is not biased by a specific train/test split. For each fold, we:
-# 1. Train ALPIN on 90% of the data to learn $\beta_{opt}$.
-# 2. Evaluate the learned $\beta_{opt}$ on the remaining 10% (test set).
 
 # %%
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
@@ -103,7 +91,7 @@ display(df_cv)
 
 # %% [markdown]
 # ### Summary of CV Results
-# The table below shows the average performance across all 10 folds.
+#
 
 # %%
 summary = df_cv.drop(columns=['fold']).agg(['mean', 'std']).T
@@ -113,10 +101,12 @@ display(summary)
 # ## 3. Protocol I vs. Protocol II
 #
 # The paper defines two labeling protocols:
-# - **Protocol I**: All changepoints are labeled.
-# - **Protocol II**: Only changepoints with a jump amplitude $|\Delta| > 3$ are labeled.
 #
-# We expect Protocol II to result in a larger $\beta$ (higher penalty) because it ignores smaller jumps.
+# Protocol I: All changepoints are labeled.
+#
+# Protocol II: Only changepoints with a jump amplitude $|\Delta| > 3$ are labeled.
+#
+# We expect Protocol II to result in a larger beta because it ignores smaller jumps.
 
 # %%
 protocols = ["I", "II"]
@@ -140,9 +130,9 @@ df_proto = pd.DataFrame(protocol_comparison)
 display(df_proto)
 
 # %% [markdown]
-# ## 4. Hyperparameter Sweep Visualization
+# ## 4. Hyperparameter sweep visualization
 #
-# We can visualize how the choice of $\beta$ affects different metrics using a grid search (sweep).
+#
 
 # %%
 beta_range = np.logspace(0, 3, 20)
@@ -173,8 +163,3 @@ plt.grid(True)
 
 plt.tight_layout()
 plt.show()
-
-# %% [markdown]
-# ## 5. Conclusion
-#
-# In this notebook, we demonstrated that ALPIN successfully learns an optimal penalty parameter $\beta$ that balances precision and recall. We also observed how different labeling protocols influence the learned parameter, with Protocol II leading to a more conservative model that ignores small jumps.
