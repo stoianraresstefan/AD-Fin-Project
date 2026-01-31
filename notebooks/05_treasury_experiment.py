@@ -83,10 +83,14 @@ print(f"Date range: {df['Date'].min()} to {df['Date'].max()}")
 print(f"\nFirst few rows:")
 print(df.head())
 
-# Convert to numpy array for ALPIN
-signal = df["Value"].values
-print(f"\nSignal length: {len(signal)}")
-print(f"Signal range: [{signal.min():.2f}, {signal.max():.2f}]")
+# Store original signal length before resampling
+signal_daily = df["Value"].values
+original_length = len(signal_daily)
+print(f"\nSignal length: {len(signal_daily)}")
+print(f"Signal range: [{signal_daily.min():.2f}, {signal_daily.max():.2f}]")
+
+# Define changepoints in original daily data
+DAILY_CHANGEPOINTS = np.array([1992, 3155, 4544, 5105, 7065, 9710, 11480, 14543])
 
 # Resample to weekly for faster training (16k → 2.3k samples)
 df_weekly = df.set_index("Date").resample("W").mean().reset_index()
@@ -94,7 +98,17 @@ df_weekly = df_weekly.sort_values("Date").reset_index(drop=True)
 signal = df_weekly["Value"].values
 df = df_weekly
 
-print(f"\nResampled to weekly data: {len(signal)} samples")
+# Calculate scale factor and adjust changepoints programmatically
+resampled_length = len(signal)
+scale_factor = resampled_length / original_length
+FULL_CHANGEPOINTS = np.round(DAILY_CHANGEPOINTS * scale_factor).astype(int)
+
+# Print information
+print(f"\nOriginal daily signal: {original_length} samples")
+print(f"Resampled weekly signal: {resampled_length} samples")
+print(f"Scale factor: {scale_factor:.4f}")
+print(f"Daily changepoints: {DAILY_CHANGEPOINTS}")
+print(f"Resampled changepoints: {FULL_CHANGEPOINTS}")
 
 # %% [markdown]
 # ## 3. Define Changepoints and Create Partial Training Set
@@ -102,7 +116,6 @@ print(f"\nResampled to weekly data: {len(signal)} samples")
 # We have 8 ground truth changepoints. For training, we'll randomly select only 4 (50%).
 
 # %%
-FULL_CHANGEPOINTS = np.array([284, 450, 649, 729, 1009, 1387, 1640, 2077])
 print(f"Full changepoints (n={len(FULL_CHANGEPOINTS)}): {FULL_CHANGEPOINTS}")
 
 n_train_cps = len(FULL_CHANGEPOINTS) // 2
