@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: AD-Fin-Project (3.12.6)
+#     display_name: alpin (3.12.12)
 #     language: python
 #     name: python3
 # ---
@@ -292,7 +292,7 @@ print(f"Test samples: {len(test_df)} ({100 * len(test_df) / n_total:.1f}%)")
 # For BatchCP filtering, we only care about changepoints that fall within the training window.
 
 # %%
-train_changepoints = detected_cps[detected_cps < train_end]
+train_changepoints = detected_cps[:train_end]
 print(f"Changepoints in training window: {train_changepoints}")
 print(f"Number of training changepoints: {len(train_changepoints)}")
 
