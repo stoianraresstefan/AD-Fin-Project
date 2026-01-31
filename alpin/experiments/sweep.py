@@ -1,9 +1,3 @@
-"""Hyperparameter sweep utilities for ALPIN experiments.
-
-This module provides functions to perform grid searches over hyperparameters
-and analyze robustness to signal properties (e.g., noise levels).
-"""
-
 from typing import List
 import numpy as np
 import pandas as pd
@@ -21,10 +15,8 @@ def sweep_beta(
     n_splits: int = 3,
 ) -> pd.DataFrame:
     """
-    Performs grid search over beta values using K-fold cross-validation to evaluate changepoint detection performance.
-    For each beta, evaluates metrics on test folds without training a model, using the partition solver directly.
+    grid search over beta values using K-fold cross-validation to evaluate changepoint detection performance.
 
-    Input: signals (list of np.ndarray) - signal arrays, ground_truths (list of list of int) - true changepoints, beta_range (list of float) - betas to test, n_splits (int) - cross-validation folds
     Output: pd.DataFrame - results with columns beta, fold, precision, recall, hausdorff_distance, annotation_error, rand_index
     """
     indices = np.arange(len(signals))
@@ -71,11 +63,8 @@ def sweep_noise(
     seed: int = 42,
 ) -> pd.DataFrame:
     """
-    Studies robustness to noise by generating synthetic signals at different noise levels and evaluating detection with fixed beta.
-    Uses K-fold cross-validation to compute performance metrics across noise levels while keeping the penalty parameter constant.
-
-    Input: n_signals (int) - signals per noise level, n_samples (int) - signal length, noise_levels (list of float) - noise stds to test, n_splits (int) - CV folds, beta (float) - fixed penalty, seed (int) - reproducibility
-    Output: pd.DataFrame - results with columns noise_std, fold, precision, recall, hausdorff_distance, annotation_error, rand_index
+    checks robustness to noise by generating synthetic signals at different noise levels and evaluating detection with fixed beta.
+   
     """
     results = []
 

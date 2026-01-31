@@ -90,18 +90,11 @@ def recall(
     signal_length: int,
     tolerance: int = 10,
 ) -> float:
-    """
-    Computes recall as the fraction of ground truth changepoints detected within tolerance of any prediction.
-    Returns 1.0 if no ground truth, 0.0 if ground truth but no predictions.
-
-    Input: predicted (list of int) - predicted changepoint indices, ground_truth (list of int) - true indices, signal_length (int) - length, tolerance (int) - tolerance window in samples
-    Output: float - recall value in [0, 1]
-    """
-    # If no ground truth, recall is 1.0 (nothing to detect)
+    # no ground truth, recall is 1.0
     if len(ground_truth) == 0:
         return 1.0
 
-    # If no predictions but have ground truth, recall is 0.0
+    # no predictions but have ground truth, recall is 0.0
     if len(predicted) == 0:
         return 0.0
 

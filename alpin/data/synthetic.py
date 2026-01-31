@@ -28,16 +28,16 @@ def generate_signal(
     if seed is not None:
         np.random.seed(seed)
 
-    # Step 1: Determine number of changepoints
+    # ------- num of changepoints
     if n_changepoints is None:
         n_changepoints = np.random.randint(3, 8)  # 3-7 inclusive
 
-    # Step 2: Generate regime lengths (as fractions of total, sum to 1)
+    # ------- Generate regime lengths (as fractions of total, sum to 1)
     n_regimes = n_changepoints + 1
     regime_fractions = np.random.uniform(0.05, 0.30, n_regimes)
-    regime_fractions = regime_fractions / regime_fractions.sum()  # Normalize
+    regime_fractions = regime_fractions / regime_fractions.sum()  # normalize
 
-    # Step 3: Convert fractions to sample counts and compute changepoint indices
+    # ------- Convert fractions to sample counts and compute changepoint indices
     regime_samples = (regime_fractions * n_samples).astype(int)
     # Adjust last regime to ensure exact sum
     regime_samples[-1] = n_samples - regime_samples[:-1].sum()
@@ -45,7 +45,7 @@ def generate_signal(
     # Compute changepoint indices (cumulative positions)
     changepoint_indices = np.cumsum(regime_samples)[:-1].tolist()
 
-    # Step 4: Generate jump amplitudes for each regime
+    # ------- Generate jump amplitudes for each regime
     # Start at level 0, apply jumps
     current_level = 0.0
     regime_levels = [current_level]
@@ -57,18 +57,18 @@ def generate_signal(
         regime_levels.append(current_level)
         jump_amplitudes.append(jump)
 
-    # Step 5: Create piecewise constant signal (clean)
+    # ------- Create piecewise constant signal (clean)
     y_clean = np.zeros(n_samples)
     idx = 0
     for regime_idx, regime_size in enumerate(regime_samples):
         y_clean[idx : idx + regime_size] = regime_levels[regime_idx]
         idx += regime_size
 
-    # Step 6: Add Gaussian noise
+    # ------- Add Gaussian noise
     noise = np.random.normal(0, noise_std, n_samples)
     signal = y_clean + noise
 
-    # Step 7: Apply protocol filtering if Protocol II
+    # ------- Apply protocol filtering if Protocol II
     if protocol == "II":
         # Filter changepoints: keep only those with |amplitude| > 3
         filtered_cps = []

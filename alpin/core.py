@@ -1,18 +1,3 @@
-"""Core ALPIN algorithm for learning optimal penalty parameter.
-
-This module implements the ALPIN (Adaptive Learning of Penalty for INference)
-algorithm that learns the optimal penalty parameter beta from labeled training data
-using L-BFGS optimization.
-
-The algorithm follows the paper's approach (Section 3):
-1. Warm start: Optimize beta on a single randomly selected signal
-2. Global optimization: Minimize average excess risk across all signals
-
-Reference:
-    T. Truong, C. Oriot, V. Lecomte. "Automatic labeling of
-    piecewise-constant signals". EUSIPCO 2017.
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -33,12 +18,6 @@ class ALPIN:
     """
 
     def __init__(self, beta_bounds: tuple[float, float] = (1e-6, 1e6)) -> None:
-        """
-        Initializes ALPIN model with valid range bounds for the penalty parameter.
-
-        Input: beta_bounds (tuple of float) - (min_beta, max_beta) range for beta values
-        Output: None - initializes instance attributes
-        """
         self.beta_bounds = beta_bounds
         self.beta_opt: Optional[float] = None
 
@@ -61,13 +40,13 @@ class ALPIN:
             )
 
         if len(signals) == 0:
-            raise ValueError("Cannot fit on empty dataset")
+            raise ValueError("empty dataset")
 
         for i, signal in enumerate(signals):
             if len(signal) < 20:
-                raise ValueError(f"Signal {i} too short: length {len(signal)} < 20")
+                raise ValueError(f"Signal {i} too short, length {len(signal)} < 20")
 
-        # PHASE 1: WARM START - optimize beta on single random signal
+        #  WARM START - optimize beta on single random signal
         warm_idx = np.random.choice(len(signals))
         warm_signal = signals[warm_idx]
         warm_truth = ground_truths[warm_idx]
@@ -87,7 +66,7 @@ class ALPIN:
         )
         warm_start_beta = np.exp(warm_result.x[0])
 
-        # PHASE 2: GLOBAL OPTIMIZATION - minimize average excess risk
+        # -- minimize average excess risk
         def global_objective(log_beta: np.ndarray) -> float:
             beta = np.exp(log_beta[0])
             total_risk = 0.0
@@ -108,10 +87,8 @@ class ALPIN:
 
     def predict(self, signal: np.ndarray) -> list[int]:
         """
-        Detects changepoints in a new signal using the learned penalty parameter with the partition solver.
-        Requires model to be fitted first.
-
-        Input: signal (np.ndarray) - 1D signal array (>= 20 samples)
+        Detects changepoints in a new signal using the learned penalty parameter
+        
         Output: list of int - detected changepoint indices, empty list if no changepoints found
         """
         if self.beta_opt is None:
@@ -125,11 +102,5 @@ class ALPIN:
         ground_truths: list[list[int]],
         signal: np.ndarray,
     ) -> list[int]:
-        """
-        Convenience method combining fit and predict in one call: fits model on training data then predicts on a single signal.
-
-        Input: signals (list of np.ndarray) - training signals, ground_truths (list of list of int) - true changepoints, signal (np.ndarray) - signal to predict
-        Output: list of int - detected changepoint indices for the input signal
-        """
         self.fit(signals, ground_truths)
         return self.predict(signal)
