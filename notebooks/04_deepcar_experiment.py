@@ -253,8 +253,38 @@ print(
     f"Average: Precision={avg_metrics['precision']:.2f}, Recall={avg_metrics['recall']:.2f}"
 )
 
+all_cps = []
+for series_cps in detected_changepoints.values():
+    all_cps.extend(series_cps)
+
+
+if len(all_cps) >= 2:
+    all_cps_sorted = sorted(all_cps)
+    distances = [
+        all_cps_sorted[i + 1] - all_cps_sorted[i]
+        for i in range(len(all_cps_sorted) - 1)
+    ]
+    min_distance = min(distances)
+    smax = int(np.ceil(min_distance / 2))
+
+    print("\nBatchCP Analysis (DeepCAR Algorithm 1):")
+    print(f"  Total changepoints detected: {len(all_cps)}")
+    print(f"  Minimum spacing between changepoints: {min_distance} samples")
+    print(f"  Recommended smax (batch size): {smax} samples")
+    print(f"  Current encoder length: {MAX_ENCODER_LENGTH} samples")
+
+    if MAX_ENCODER_LENGTH > smax:
+        print(f"  ⚠️  WARNING: Encoder length ({MAX_ENCODER_LENGTH}) > smax ({smax})")
+        print("      This will cause heavy filtering (possibly 100%)!")
+        print(f"      Recommendation: Use encoder_length ≤ {smax}")
+else:
+    print("\nInsufficient changepoints for smax calculation")
+    smax = MAX_ENCODER_LENGTH
+
+
 # %%
 # Visualize ALPIN detection on one signal
+
 example_idx = 0
 plot_signal(
     signals[example_idx],
@@ -442,6 +472,8 @@ class ChangePointAwareDataLoader:
         self.tolerance = tolerance
         self.filtered_count = 0
         self.total_count = 0
+        group_ids = list(self.changepoints_dict.keys())
+        self.idx_to_group = {idx: group_id for idx, group_id in enumerate(group_ids)}
 
     def _batch_contains_changepoint(self, batch: tuple) -> bool:
         """
@@ -456,32 +488,34 @@ class ChangePointAwareDataLoader:
         if groups is None:
             return False
 
-        batch_size = groups.shape[0]
+        decoder_times = x_dict.get("decoder_time_idx", None)
+        if decoder_times is None:
+            return False
+
+        batch_size = len(decoder_times)
 
         for i in range(batch_size):
             series_idx = int(groups[i, 0].item())
-            series_id = f"series_{series_idx}"
+            group_id = self.idx_to_group.get(series_idx, f"series_{series_idx}")
 
-            if series_id not in self.changepoints_dict:
+            if group_id not in self.changepoints_dict:
                 continue
 
-            decoder_times = None
-            if "decoder_time_idx" in x_dict:
-                decoder_times = x_dict["decoder_time_idx"][i].cpu().numpy()
+            series_changepoints = self.changepoints_dict[group_id]
 
-            if decoder_times is None or len(decoder_times) == 0:
+            if not series_changepoints:
                 continue
 
-            decoder_end = int(decoder_times[-1])
-            encoder_end = decoder_end - len(decoder_times)
+            series_decoder_times = decoder_times[i].cpu().numpy()
+            if len(series_decoder_times) == 0:
+                continue
+
+            decoder_end = int(series_decoder_times[-1])
+            encoder_end = decoder_end - len(series_decoder_times)
             encoder_start = encoder_end - self.encoder_length + 1
 
-            for cp in self.changepoints_dict[series_id]:
-                if (
-                    (encoder_start - self.tolerance)
-                    <= cp
-                    <= (encoder_end + self.tolerance)
-                ):
+            for cp in series_changepoints:
+                if encoder_start < cp < encoder_end:
                     return True
 
         return False
