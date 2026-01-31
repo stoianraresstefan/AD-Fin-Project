@@ -107,7 +107,7 @@ MAX_PREDICTION_LENGTH = 20  # Forecast horizon
 BATCH_SIZE = 32
 
 # Training configuration
-MAX_EPOCHS = 20  # Full training for final results
+MAX_EPOCHS = 1  # Quick test (set to 20 for full training)
 LEARNING_RATE = 1e-3
 HIDDEN_SIZE = 32
 RNN_LAYERS = 2
@@ -259,24 +259,35 @@ for series_cps in detected_changepoints.values():
 
 
 if len(all_cps) >= 2:
-    all_cps_sorted = sorted(all_cps)
-    distances = [
-        all_cps_sorted[i + 1] - all_cps_sorted[i]
-        for i in range(len(all_cps_sorted) - 1)
-    ]
-    min_distance = min(distances)
-    smax = int(np.ceil(min_distance / 2))
+    # Calculate minimum spacing PER SERIES first, then take global minimum
+    min_distance = float("inf")
+    for series_id, series_cps in detected_changepoints.items():
+        if len(series_cps) >= 2:
+            sorted_cps = sorted(series_cps)
+            series_distances = [
+                sorted_cps[i + 1] - sorted_cps[i] for i in range(len(sorted_cps) - 1)
+            ]
+            series_min = min(series_distances)
+            min_distance = min(min_distance, series_min)
 
-    print("\nBatchCP Analysis (DeepCAR Algorithm 1):")
-    print(f"  Total changepoints detected: {len(all_cps)}")
-    print(f"  Minimum spacing between changepoints: {min_distance} samples")
-    print(f"  Recommended smax (batch size): {smax} samples")
-    print(f"  Current encoder length: {MAX_ENCODER_LENGTH} samples")
+    if min_distance == float("inf"):
+        print("\nNo series with multiple changepoints for smax calculation")
+        smax = MAX_ENCODER_LENGTH
+    else:
+        smax = int(np.ceil(min_distance / 2))
 
-    if MAX_ENCODER_LENGTH > smax:
-        print(f"  ⚠️  WARNING: Encoder length ({MAX_ENCODER_LENGTH}) > smax ({smax})")
-        print("      This will cause heavy filtering (possibly 100%)!")
-        print(f"      Recommendation: Use encoder_length ≤ {smax}")
+        print("\nBatchCP Analysis (DeepCAR Algorithm 1):")
+        print(f"  Total changepoints detected: {len(all_cps)}")
+        print(
+            f"  Minimum spacing between changepoints (within series): {min_distance} samples"
+        )
+        print(f"  Recommended smax (batch size): {smax} samples")
+        print(f"  Current encoder length: {MAX_ENCODER_LENGTH} samples")
+
+        if MAX_ENCODER_LENGTH > smax:
+            print(f"  [WARNING] Encoder length ({MAX_ENCODER_LENGTH}) > smax ({smax})")
+            print("      This will cause heavy filtering (possibly 100%)!")
+            print(f"      Recommendation: Use encoder_length <= {smax}")
 else:
     print("\nInsufficient changepoints for smax calculation")
     smax = MAX_ENCODER_LENGTH
@@ -472,8 +483,6 @@ class ChangePointAwareDataLoader:
         self.tolerance = tolerance
         self.filtered_count = 0
         self.total_count = 0
-        group_ids = list(self.changepoints_dict.keys())
-        self.idx_to_group = {idx: group_id for idx, group_id in enumerate(group_ids)}
 
     def _batch_contains_changepoint(self, batch: tuple) -> bool:
         """
@@ -496,7 +505,7 @@ class ChangePointAwareDataLoader:
 
         for i in range(batch_size):
             series_idx = int(groups[i, 0].item())
-            group_id = self.idx_to_group.get(series_idx, f"series_{series_idx}")
+            group_id = f"series_{series_idx}"
 
             if group_id not in self.changepoints_dict:
                 continue
